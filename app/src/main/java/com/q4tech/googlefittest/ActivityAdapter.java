@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPointVH> {
     List<DataPoint> dataSet;
-    private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
     private DataPointClickListener listener;
 
     public ActivityAdapter(DataPointClickListener activity, List<DataPoint> dataSet) {

@@ -1,15 +1,16 @@
 package com.q4tech.googlefittest;
 
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 
@@ -18,13 +19,19 @@ import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Scope;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.fitness.Fitness;
 import com.google.android.gms.fitness.data.Bucket;
 import com.google.android.gms.fitness.data.DataPoint;
 import com.google.android.gms.fitness.data.DataSet;
+import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
+import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.fitness.request.DataReadRequest;
+import com.google.android.gms.fitness.request.OnDataPointListener;
+import com.google.android.gms.fitness.request.SensorRequest;
+import com.google.android.gms.fitness.result.DailyTotalResult;
 import com.google.android.gms.fitness.result.DataReadResult;
 
 import java.text.DateFormat;
@@ -42,6 +49,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
     private RecyclerView mRecyclerView;
     private ProgressBar mProgressBar;
     private DataReadResult readResult;
+    private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -149,16 +157,22 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         Date now = new Date();
         cal.setTime(now);
         long endTime = cal.getTimeInMillis();
-        cal.add(Calendar.DAY_OF_MONTH, -7);
+        cal.add(Calendar.DAY_OF_MONTH, -6);
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         long startTime = cal.getTimeInMillis();
 
-        java.text.DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
         Log.i(TAG, "Range Start: " + dateFormat.format(startTime));
         Log.i(TAG, "Range End: " + dateFormat.format(endTime));
+
+        DataSource dataSource = new DataSource.Builder()
+                .setAppPackageName("com.google.android.gms")
+                .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+                .setType(DataSource.TYPE_DERIVED)
+                .setStreamName("estimated_steps")
+                .build();
 
         DataReadRequest readRequest = new DataReadRequest.Builder()
                 // The data request can specify multiple data types to return, effectively
@@ -167,6 +181,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
                 // datapoints each consisting of a few steps and a timestamp.  The more likely
                 // scenario is wanting to see how many steps were walked per day, for 7 days.
                 .aggregate(DataType.TYPE_STEP_COUNT_DELTA, DataType.AGGREGATE_STEP_COUNT_DELTA)
+//                .aggregate(dataSource, DataType.AGGREGATE_STEP_COUNT_DELTA)
                 // Analogous to a "Group By" in SQL, defines how data should be aggregated.
                 // bucketByTime allows for a time span, whereas bucketBySession would allow
                 // bucketing by "sessions", which would need to be defined in code.
@@ -180,11 +195,35 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         return Fitness.HistoryApi.readData(mClient, readRequest).await(1, TimeUnit.MINUTES);
     }
 
-    private static void dumpDataSet(DataSet dataSet) {
+    private DailyTotalResult getDailyTotal() {
+        return Fitness.HistoryApi.readDailyTotal(mClient, DataType.TYPE_STEP_COUNT_DELTA).await(1, TimeUnit.MINUTES);
+    }
+
+    private void dumpDataSet(DataSet dataSet) {
         Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
-        DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
         for (DataPoint dp : dataSet.getDataPoints()) {
+            Log.i(TAG, "Data point:");
+            Log.i(TAG, "\tType: " + dp.getDataType().getName());
+            Log.i(TAG, "\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
+            Log.i(TAG, "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
+            for (Field field : dp.getDataType().getFields()) {
+                Log.i(TAG, "\tField: " + field.getName() +
+                        " Value: " + dp.getValue(field));
+            }
+        }
+    }
+
+    private class AskForDailyTotal extends AsyncTask<Void, Void, DailyTotalResult> {
+
+        @Override
+        protected DailyTotalResult doInBackground(Void... voids) {
+            return getDailyTotal();
+        }
+
+        @Override
+        protected void onPostExecute(DailyTotalResult dailyTotalResult) {
+            DataPoint dp = dailyTotalResult.getTotal().getDataPoints().get(0);
             Log.i(TAG, "Data point:");
             Log.i(TAG, "\tType: " + dp.getDataType().getName());
             Log.i(TAG, "\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
@@ -215,6 +254,8 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         protected void onPostExecute(DataReadResult dataReadResult) {
             readResult = dataReadResult;
 
+//            new AskForDailyTotal().execute();
+
             // specify an adapter
             ActivityAdapter mAdapter = null;
             //Used for aggregated data
@@ -242,6 +283,30 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
 //            }
             mRecyclerView.setAdapter(mAdapter);
             mProgressBar.setVisibility(View.GONE);
+            mRecyclerView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.action_refresh:
+                if (mProgressBar.getVisibility() == View.GONE) {
+                    mProgressBar.setVisibility(View.VISIBLE);
+                    mRecyclerView.setVisibility(View.GONE);
+                    new AskForStepsData().execute();
+                }
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
     }
 }
