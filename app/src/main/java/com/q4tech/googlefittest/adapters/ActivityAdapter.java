@@ -1,18 +1,18 @@
-package com.q4tech.googlefittest;
+package com.q4tech.googlefittest.adapters;
 
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.google.android.gms.fitness.data.DataPoint;
-import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.Field;
+import com.q4tech.googlefittest.R;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -21,7 +21,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPointVH> {
     List<DataPoint> dataSet;
-    private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+    private DateFormat dayFormat = new SimpleDateFormat("EEEE");
+    private DateFormat dateTextFormat = new SimpleDateFormat("d 'de' MMMM");
     private DataPointClickListener listener;
 
     public ActivityAdapter(DataPointClickListener activity, List<DataPoint> dataSet) {
@@ -42,8 +43,11 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
     public void onBindViewHolder(DataPointVH holder, int position) {
         DataPoint dataPoint = dataSet.get(position);
         for (Field field : dataPoint.getDataType().getFields()) {
-            holder.date.setText("Fecha: " + dateFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
-            holder.value.setText("Pasos: " + dataPoint.getValue(field));
+            String day = dayFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS));
+            day = day.substring(0, 1).toUpperCase() + day.substring(1);
+            holder.dayOfTheWeek.setText(day);
+            holder.steps.setText(dataPoint.getValue(field).toString());
+            holder.date.setText(dateTextFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
         }
     }
 
@@ -53,14 +57,17 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
     }
 
     protected class DataPointVH extends RecyclerView.ViewHolder {
+        TextView dayOfTheWeek;
+        TextView steps;
         TextView date;
-        TextView value;
+        ImageView breakfast, lunch, merienda, dinner;
 
         public DataPointVH(View itemView) {
             super(itemView);
 
-            date = (TextView) itemView.findViewById(R.id.item_date);
-            value = (TextView) itemView.findViewById(R.id.item_value);
+            dayOfTheWeek = (TextView) itemView.findViewById(R.id.day_of_the_week);
+            steps = (TextView) itemView.findViewById(R.id.steps);
+            date = (TextView) itemView.findViewById(R.id.date);
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
@@ -68,6 +75,10 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
                     listener.openDayTasks(dp, dp.getDataType().getFields().get(0));
                 }
             });
+            breakfast = (ImageView) itemView.findViewById(R.id.breakfast_icon);
+            lunch = (ImageView) itemView.findViewById(R.id.lunch_icon);
+            merienda = (ImageView) itemView.findViewById(R.id.merienda_icon);
+            dinner = (ImageView) itemView.findViewById(R.id.dinner_icon);
         }
     }
 

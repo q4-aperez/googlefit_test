@@ -1,4 +1,4 @@
-package com.q4tech.googlefittest;
+package com.q4tech.googlefittest.adapters;
 
 import android.content.Context;
 import android.content.res.TypedArray;

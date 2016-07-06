@@ -1,4 +1,4 @@
-package com.q4tech.googlefittest;
+package com.q4tech.googlefittest.activities;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -13,13 +13,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Scope;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.fitness.Fitness;
 import com.google.android.gms.fitness.data.Bucket;
 import com.google.android.gms.fitness.data.DataPoint;
@@ -27,12 +26,13 @@ import com.google.android.gms.fitness.data.DataSet;
 import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
-import com.google.android.gms.fitness.data.Value;
 import com.google.android.gms.fitness.request.DataReadRequest;
-import com.google.android.gms.fitness.request.OnDataPointListener;
-import com.google.android.gms.fitness.request.SensorRequest;
 import com.google.android.gms.fitness.result.DailyTotalResult;
 import com.google.android.gms.fitness.result.DataReadResult;
+import com.q4tech.googlefittest.adapters.ActivityAdapter;
+import com.q4tech.googlefittest.adapters.DividerItemDecoration;
+import com.q4tech.googlefittest.R;
+import com.q4tech.googlefittest.dialogs.TasksDialog;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -44,17 +44,21 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements ActivityAdapter.DataPointClickListener {
 
+    private final static String RESULTS = "RESULTS";
+
     private GoogleApiClient mClient = null;
     private static String TAG = "MainActivity";
     private RecyclerView mRecyclerView;
     private ProgressBar mProgressBar;
-    private DataReadResult readResult;
+    private ArrayList<DataPoint> readResult;
     private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+    private DateFormat dateTextFormat = new SimpleDateFormat("d 'de' MMMM");
+    private TextView todayText;
+    private TextView todaySteps;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Put application specific code here.
 
         setContentView(R.layout.activity_main);
         // This method sets up our custom logger, which will print all log messages to the device
@@ -69,6 +73,8 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
 
         mRecyclerView = (RecyclerView) findViewById(R.id.days_list);
         mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
+        todayText = (TextView) findViewById(R.id.today_text);
+        todaySteps = (TextView) findViewById(R.id.today_steps);
 
         // use this setting to improve performance if you know that changes
         // in content do not change the layout size of the RecyclerView
@@ -78,6 +84,10 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         LinearLayoutManager mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.addItemDecoration(new DividerItemDecoration(this));
+        if (savedInstanceState != null) {
+            readResult = savedInstanceState.getParcelableArrayList(RESULTS);
+            setView(readResult);
+        }
     }
 
     @Override
@@ -152,7 +162,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
     }
 
     private DataReadResult requestWeekData() {
-        // Setting a start and end date using a range of 1 week before this moment.
+        // Setting a start and end dayOfTheWeek using a range of 1 week before this moment.
         Calendar cal = Calendar.getInstance();
         Date now = new Date();
         cal.setTime(now);
@@ -180,8 +190,8 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
                 // In this example, it's very unlikely that the request is for several hundred
                 // datapoints each consisting of a few steps and a timestamp.  The more likely
                 // scenario is wanting to see how many steps were walked per day, for 7 days.
-                .aggregate(DataType.TYPE_STEP_COUNT_DELTA, DataType.AGGREGATE_STEP_COUNT_DELTA)
-//                .aggregate(dataSource, DataType.AGGREGATE_STEP_COUNT_DELTA)
+//                .aggregate(DataType.TYPE_STEP_COUNT_DELTA, DataType.AGGREGATE_STEP_COUNT_DELTA)
+                .aggregate(dataSource, DataType.AGGREGATE_STEP_COUNT_DELTA)
                 // Analogous to a "Group By" in SQL, defines how data should be aggregated.
                 // bucketByTime allows for a time span, whereas bucketBySession would allow
                 // bucketing by "sessions", which would need to be defined in code.
@@ -200,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
     }
 
     private void dumpDataSet(DataSet dataSet) {
-        Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
+//        Log.i(TAG, "Data returned for Data type: " + dataSet.getDataType().getName());
 
         for (DataPoint dp : dataSet.getDataPoints()) {
             Log.i(TAG, "Data point:");
@@ -252,15 +262,11 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
 
         @Override
         protected void onPostExecute(DataReadResult dataReadResult) {
-            readResult = dataReadResult;
-
 //            new AskForDailyTotal().execute();
 
-            // specify an adapter
-            ActivityAdapter mAdapter = null;
             //Used for aggregated data
             if (dataReadResult.getBuckets().size() > 0) {
-                Log.e("History", "Number of buckets: " + dataReadResult.getBuckets().size());
+                Log.i("History", "Number of buckets: " + dataReadResult.getBuckets().size());
                 List<DataPoint> dataPoints = new ArrayList<>();
                 for (Bucket bucket : dataReadResult.getBuckets()) {
                     List<DataSet> dataSets = bucket.getDataSets();
@@ -271,19 +277,25 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
                         }
                     }
                 }
-                mAdapter = new ActivityAdapter(MainActivity.this, dataPoints);
+                setView(dataPoints);
+                readResult = (ArrayList<DataPoint>) dataPoints;
             }
-            //Used for non-aggregated data
-//            else if (dataReadResult.getDataSets().size() > 0) {
-//                Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
-//                mAdapter = new ActivityAdapter(MainActivity.this, dataReadResult.getDataSets());
-//                for (DataSet dataSet : dataReadResult.getDataSets()) {
-//                    dumpDataSet(dataSet);
-//                }
-//            }
+        }
+    }
+
+    private void setView(List<DataPoint> dataPoints) {
+        if (dataPoints.size() > 0) {
+            ActivityAdapter mAdapter = new ActivityAdapter(this, dataPoints);
             mRecyclerView.setAdapter(mAdapter);
+            DataPoint first = dataPoints.get(0);
+            String date = getString(R.string.steps_today).replace("$DATE$", dateTextFormat.format(first.getStartTime(TimeUnit.MILLISECONDS)));
+            todayText.setText(date);
+            Field stepsField = first.getDataType().getFields().get(0);
+            todaySteps.setText(first.getValue(stepsField).toString());
             mProgressBar.setVisibility(View.GONE);
             mRecyclerView.setVisibility(View.VISIBLE);
+            todaySteps.setVisibility(View.VISIBLE);
+            todayText.setVisibility(View.VISIBLE);
         }
     }
 
@@ -302,11 +314,20 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
                 if (mProgressBar.getVisibility() == View.GONE) {
                     mProgressBar.setVisibility(View.VISIBLE);
                     mRecyclerView.setVisibility(View.GONE);
+                    todaySteps.setVisibility(View.INVISIBLE);
+                    todayText.setVisibility(View.INVISIBLE);
                     new AskForStepsData().execute();
                 }
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putParcelableArrayList(RESULTS, readResult);
+
+        super.onSaveInstanceState(outState);
     }
 }

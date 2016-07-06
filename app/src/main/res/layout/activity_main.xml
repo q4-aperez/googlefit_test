@@ -4,7 +4,7 @@
     android:id="@+id/main_activity_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.q4tech.googlefittest.MainActivity">
+    tools:context=".activities.MainActivity">
 
     <ProgressBar
         android:id="@+id/progress_bar"
@@ -13,8 +13,39 @@
         android:layout_height="wrap_content"
         android:layout_centerInParent="true" />
 
+    <LinearLayout
+        android:id="@+id/today_steps_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/colorPrimaryDark"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/today_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="@string/steps_today"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:visibility="invisible" />
+
+        <TextView
+            android:id="@+id/today_steps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="5642"
+            android:textColor="@android:color/white"
+            android:textSize="70sp"
+            android:textStyle="bold"
+            android:visibility="invisible" />
+    </LinearLayout>
+
     <android.support.v7.widget.RecyclerView
         android:id="@+id/days_list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_below="@id/today_steps_container" />
 </RelativeLayout>
