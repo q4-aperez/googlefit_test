@@ -12,17 +12,21 @@ import com.google.android.gms.fitness.data.Field;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Created by alex.perez on 05/07/2016.
  */
 public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPointVH> {
-    DataSet dataSet;
+    List<DataPoint> dataSet;
     private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    private DataPointClickListener listener;
 
-    public ActivityAdapter(DataSet dataSet) {
+    public ActivityAdapter(DataPointClickListener activity, List<DataPoint> dataSet) {
         this.dataSet = dataSet;
+        this.listener = activity;
     }
 
     @Override
@@ -36,7 +40,7 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
 
     @Override
     public void onBindViewHolder(DataPointVH holder, int position) {
-        DataPoint dataPoint = dataSet.getDataPoints().get(position);
+        DataPoint dataPoint = dataSet.get(position);
         for (Field field : dataPoint.getDataType().getFields()) {
             holder.date.setText("Fecha: " + dateFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
             holder.value.setText("Pasos: " + dataPoint.getValue(field));
@@ -45,7 +49,7 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
 
     @Override
     public int getItemCount() {
-        return dataSet.getDataPoints().size();
+        return dataSet.size();
     }
 
     protected class DataPointVH extends RecyclerView.ViewHolder {
@@ -57,6 +61,17 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
 
             date = (TextView) itemView.findViewById(R.id.item_date);
             value = (TextView) itemView.findViewById(R.id.item_value);
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    DataPoint dp = dataSet.get(getAdapterPosition());
+                    listener.openDayTasks(dp, dp.getDataType().getFields().get(0));
+                }
+            });
         }
+    }
+
+    public interface DataPointClickListener {
+        void openDayTasks(DataPoint dp, Field field);
     }
 }

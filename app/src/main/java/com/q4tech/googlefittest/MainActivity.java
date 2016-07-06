@@ -1,13 +1,17 @@
 package com.q4tech.googlefittest;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.View;
+import android.widget.ProgressBar;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.Scopes;
@@ -25,17 +29,19 @@ import com.google.android.gms.fitness.result.DataReadResult;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements ActivityAdapter.DataPointClickListener {
 
-    private static final int MY_PERMISSIONS_REQUEST_READ_CONTACTS = 101;
     private GoogleApiClient mClient = null;
     private static String TAG = "MainActivity";
     private RecyclerView mRecyclerView;
+    private ProgressBar mProgressBar;
+    private DataReadResult readResult;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mRecyclerView = (RecyclerView) findViewById(R.id.days_list);
+        mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
 
         // use this setting to improve performance if you know that changes
         // in content do not change the layout size of the RecyclerView
@@ -62,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         // use a linear layout manager
         LinearLayoutManager mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
+        mRecyclerView.addItemDecoration(new DividerItemDecoration(this));
     }
 
     @Override
@@ -92,7 +100,9 @@ public class MainActivity extends AppCompatActivity {
                                 public void onConnected(Bundle bundle) {
                                     Log.i(TAG, "Connected!!!");
                                     // Now you can make calls to the Fitness APIs.
-                                    new AskForStepsData().execute();
+                                    if (readResult == null) {
+                                        new AskForStepsData().execute();
+                                    }
                                 }
 
                                 @Override
@@ -139,7 +149,11 @@ public class MainActivity extends AppCompatActivity {
         Date now = new Date();
         cal.setTime(now);
         long endTime = cal.getTimeInMillis();
-        cal.add(Calendar.WEEK_OF_YEAR, -1);
+        cal.add(Calendar.DAY_OF_MONTH, -7);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
         long startTime = cal.getTimeInMillis();
 
         java.text.DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
@@ -182,6 +196,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void openDayTasks(DataPoint dp, Field field) {
+//        Intent intent = new Intent(this, TasksActivity.class);
+//        startActivity(intent);
+        TasksDialog dialog = new TasksDialog();
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        dialog.show(transaction, TAG);
+    }
+
     private class AskForStepsData extends AsyncTask<Void, Void, DataReadResult> {
         @Override
         protected DataReadResult doInBackground(Void... voids) {
@@ -190,28 +213,35 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(DataReadResult dataReadResult) {
+            readResult = dataReadResult;
+
             // specify an adapter
             ActivityAdapter mAdapter = null;
             //Used for aggregated data
             if (dataReadResult.getBuckets().size() > 0) {
                 Log.e("History", "Number of buckets: " + dataReadResult.getBuckets().size());
+                List<DataPoint> dataPoints = new ArrayList<>();
                 for (Bucket bucket : dataReadResult.getBuckets()) {
                     List<DataSet> dataSets = bucket.getDataSets();
                     for (DataSet dataSet : dataSets) {
                         dumpDataSet(dataSet);
-                        mAdapter = new ActivityAdapter(dataSet);
+                        if (dataSet.getDataPoints().size() > 0) {
+                            dataPoints.addAll(0, dataSet.getDataPoints());
+                        }
                     }
                 }
+                mAdapter = new ActivityAdapter(MainActivity.this, dataPoints);
             }
             //Used for non-aggregated data
-            else if (dataReadResult.getDataSets().size() > 0) {
-                Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
-                for (DataSet dataSet : dataReadResult.getDataSets()) {
-                    dumpDataSet(dataSet);
-                    mAdapter = new ActivityAdapter(dataSet);
-                }
-            }
+//            else if (dataReadResult.getDataSets().size() > 0) {
+//                Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
+//                mAdapter = new ActivityAdapter(MainActivity.this, dataReadResult.getDataSets());
+//                for (DataSet dataSet : dataReadResult.getDataSets()) {
+//                    dumpDataSet(dataSet);
+//                }
+//            }
             mRecyclerView.setAdapter(mAdapter);
+            mProgressBar.setVisibility(View.GONE);
         }
     }
 }
