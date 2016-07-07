@@ -7,11 +7,17 @@
     <application
         android:allowBackup="true"
         android:icon="@drawable/essen_logo_red"
-        android:logo="@drawable/essen_logo"
         android:label="@string/app_name"
+        android:logo="@drawable/essen_logo"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity android:name=".activities.MainActivity">
+
+        </activity>
+
+        <activity
+            android:name=".activities.SplashActivity"
+            android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
