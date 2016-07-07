@@ -1,6 +1,10 @@
 package com.q4tech.googlefittest.adapters;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.content.res.AppCompatResources;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,6 +32,9 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
     private DateFormat dateTextFormat = new SimpleDateFormat("d 'de' MMMM");
     private DataPointClickListener listener;
 
+    private final static int BASIC_VIEW = 0;
+    private final static int CHALLENGES_VIEW = 1;
+
     public ActivityAdapter(DataPointClickListener activity, List<DataPoint> dataSet) {
         this.dataSet = dataSet;
         this.listener = activity;
@@ -35,22 +42,51 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
 
     @Override
     public DataPointVH onCreateViewHolder(ViewGroup parent, int viewType) {
+        View v = null;
+        DataPointVH vh = null;
         // create a new view
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.activity_item_view, parent, false);
-        DataPointVH vh = new DataPointVH(v);
+        switch (viewType) {
+            case BASIC_VIEW:
+                v = LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.steps_daily_basic_view, parent, false);
+                vh = new DataPointVH(v);
+                break;
+            case CHALLENGES_VIEW:
+                v = LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.steps_daily_challenges_view, parent, false);
+                vh = new ChallengesVH(v);
+                break;
+        }
         return vh;
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return BASIC_VIEW;
     }
 
     @Override
     public void onBindViewHolder(DataPointVH holder, int position) {
         //Ignore today
-        DataPoint dataPoint = dataSet.get(position+1);
-        for (Field field : dataPoint.getDataType().getFields()) {
-            holder.dayOfTheWeek.setText(getDayString(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
-            holder.steps.setText(dataPoint.getValue(field).toString());
-            holder.date.setText(dateTextFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
+        DataPoint dataPoint = dataSet.get(position + 1);
+        SharedPreferences sentItems = ((Activity) listener).getPreferences(Context.MODE_PRIVATE);
+        switch (getItemViewType(position)) {
+            case BASIC_VIEW:
+                for (Field field : dataPoint.getDataType().getFields()) {
+                    holder.dayOfTheWeek.setText(getDayString(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
+                    holder.steps.setText(dataPoint.getValue(field).toString());
+                    holder.date.setText(dateTextFormat.format(dataPoint.getStartTime(TimeUnit.MILLISECONDS)));
+                    if (sentItems.getBoolean(String.valueOf(dataPoint.getStartTime(TimeUnit.MILLISECONDS)), false)) {
+                        holder.btn.setText(R.string.informed);
+                        holder.btn.setTextColor(ContextCompat.getColor((Context) listener, R.color.material_grey_600));
+                    }
+                }
+                break;
+            case CHALLENGES_VIEW:
+                //TODO analyze challenges
+                break;
         }
+
     }
 
     private String getDayString(long dateInMils) {
@@ -84,7 +120,7 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
         TextView dayOfTheWeek;
         TextView steps;
         TextView date;
-        ImageView breakfast, lunch, merienda, dinner;
+        TextView btn;
 
         public DataPointVH(View itemView) {
             super(itemView);
@@ -92,21 +128,44 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.DataPo
             dayOfTheWeek = (TextView) itemView.findViewById(R.id.day_of_the_week);
             steps = (TextView) itemView.findViewById(R.id.steps);
             date = (TextView) itemView.findViewById(R.id.date);
-            itemView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    DataPoint dp = dataSet.get(getAdapterPosition());
-                    listener.openDayTasks(dp);
-                }
-            });
+            btn = (TextView) itemView.findViewById(R.id.inform_button);
+            if (btn != null) {
+                btn.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        //Today offset
+                        DataPoint dp = dataSet.get(getAdapterPosition()+1);
+                        listener.informDailySteps(dp);
+                    }
+                });
+            }
+        }
+    }
+
+    protected class ChallengesVH extends DataPointVH {
+        ImageView breakfast, lunch, merienda, dinner;
+
+        public ChallengesVH(View itemView) {
+            super(itemView);
             breakfast = (ImageView) itemView.findViewById(R.id.breakfast_icon);
             lunch = (ImageView) itemView.findViewById(R.id.lunch_icon);
             merienda = (ImageView) itemView.findViewById(R.id.merienda_icon);
             dinner = (ImageView) itemView.findViewById(R.id.dinner_icon);
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    //Today offset
+                    DataPoint dp = dataSet.get(getAdapterPosition()+1);
+                    listener.openDayTasks(dp);
+                }
+            });
         }
     }
 
     public interface DataPointClickListener {
+
         void openDayTasks(DataPoint dp);
+
+        void informDailySteps(DataPoint dp);
     }
 }

@@ -1,6 +1,8 @@
 package com.q4tech.googlefittest.activities;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -46,14 +48,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@SuppressLint("CommitPrefEdits")
 public class MainActivity extends AppCompatActivity implements ActivityAdapter.DataPointClickListener {
 
     private final static String RESULTS = "RESULTS";
     private static final int MY_PERMISSIONS_REQUEST_LOCATION = 205;
+    private static final int DAYS_BEFORE_TODAY = 6;
 
     private GoogleApiClient mClient = null;
     private static String TAG = "MainActivity";
     private RecyclerView mRecyclerView;
+    private ActivityAdapter mAdapter;
     private ProgressBar mProgressBar;
     private ArrayList<DataPoint> readResult;
     private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
@@ -202,7 +207,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         Date now = new Date();
         cal.setTime(now);
         long endTime = cal.getTimeInMillis();
-        cal.add(Calendar.DAY_OF_MONTH, -6);
+        cal.add(Calendar.DAY_OF_MONTH, -DAYS_BEFORE_TODAY);
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
@@ -252,6 +257,17 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
         dialog.show(transaction, TAG);
     }
 
+    @Override
+    public void informDailySteps(DataPoint dp) {
+        Snackbar.make(findViewById(R.id.main_activity_view), "Esito!", Snackbar.LENGTH_LONG).show();
+        SharedPreferences sentItems = getPreferences(MODE_PRIVATE);
+        String key = String.valueOf(dp.getStartTime(TimeUnit.MILLISECONDS));
+        SharedPreferences.Editor editor = sentItems.edit();
+        editor.putBoolean(key, true);
+        editor.commit();
+        mAdapter.notifyDataSetChanged();
+    }
+
     private class AskForStepsData extends AsyncTask<Void, Void, DataReadResult> {
         @Override
         protected DataReadResult doInBackground(Void... voids) {
@@ -290,7 +306,7 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
             todaySteps.setText(first.getValue(stepsField).toString());
             todayText.setText(date);
         }
-        ActivityAdapter mAdapter = new ActivityAdapter(this, dataPoints);
+        mAdapter = new ActivityAdapter(this, dataPoints);
         mRecyclerView.setAdapter(mAdapter);
         mProgressBar.setVisibility(View.GONE);
         mRecyclerView.setVisibility(View.VISIBLE);
@@ -317,6 +333,9 @@ public class MainActivity extends AppCompatActivity implements ActivityAdapter.D
                     todayText.setVisibility(View.INVISIBLE);
                     new AskForStepsData().execute();
                 }
+                SharedPreferences.Editor editor = getPreferences(MODE_PRIVATE).edit();
+                editor.clear();
+                editor.commit();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);

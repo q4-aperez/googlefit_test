@@ -4,4 +4,6 @@
     <string name="steps_today">Pasos dados hoy, $DATE$</string>
     <string name="steps_taken">Pasos dados</string>
     <string name="yesterday">Ayer</string>
+    <string name="inform">INFORMAR</string>
+    <string name="informed">INFORMADO</string>
 </resources>
